@@ -5,7 +5,7 @@ const { decryptText } = require('../lib/crypto');
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
+  'Access-Control-Allow-Headers': 'Content-Type',
   'Cache-Control': 'no-store'
 };
 
@@ -14,7 +14,7 @@ function json(status, body) {
 }
 
 function getAdminKey(request) {
-  return String(request.headers.get('x-admin-key') || request.query.get('key') || '').trim();
+  return String(request.query.get('key') || '').trim();
 }
 
 function isAuthorized(request) {
@@ -34,7 +34,7 @@ function safeDecrypt(value) {
 app.http('adminCards', {
   methods: ['GET', 'OPTIONS'],
   authLevel: 'anonymous',
-  route: 'admin/cards',
+  route: 'adminCards',
   handler: async (request, context) => {
     if (request.method === 'OPTIONS') return { status: 204, headers: corsHeaders };
 
