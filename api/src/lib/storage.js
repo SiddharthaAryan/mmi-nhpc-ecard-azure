@@ -1,4 +1,4 @@
-const { TableClient, AzureNamedKeyCredential } = require('@azure/data-tables');
+const { TableClient } = require('@azure/data-tables');
 
 let clientPromise;
 
@@ -6,15 +6,22 @@ function getTableName() {
   return process.env.TABLE_NAME || 'NhpcCards';
 }
 
+function getStorageConnectionString() {
+  const connectionString =
+    process.env.AZURE_STORAGE_CONNECTION_STRING ||
+    process.env.AzureWebJobsStorage;
+
+  if (!connectionString) {
+    throw new Error('Missing storage connection string. Expected AZURE_STORAGE_CONNECTION_STRING or AzureWebJobsStorage.');
+  }
+
+  return connectionString;
+}
+
 async function getTableClient() {
   if (clientPromise) return clientPromise;
 
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  if (!connectionString) {
-    throw new Error('Missing AZURE_STORAGE_CONNECTION_STRING.');
-  }
-
-  const client = TableClient.fromConnectionString(connectionString, getTableName());
+  const client = TableClient.fromConnectionString(getStorageConnectionString(), getTableName());
   clientPromise = (async () => {
     await client.createTable().catch((error) => {
       if (error.statusCode !== 409) throw error;
