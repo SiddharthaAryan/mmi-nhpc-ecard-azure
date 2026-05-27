@@ -1,0 +1,16 @@
+{
+  "name": "mmi-nhpc-ecard-api",
+  "version": "1.0.0",
+  "description": "Azure Functions API for NHPC e-card system",
+  "main": "src/functions/*.js",
+  "scripts": {
+    "start": "func start --javascript"
+  },
+  "dependencies": {
+    "@azure/data-tables": "latest",
+    "@azure/functions": "latest"
+  },
+  "devDependencies": {
+    "azure-functions-core-tools": "latest"
+  }
+}
