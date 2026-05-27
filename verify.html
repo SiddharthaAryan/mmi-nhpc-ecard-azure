@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verify NHPC Card</title>
+<style>
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;background:#061b3d;color:white;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px;margin:0}.box{max-width:520px;width:100%;background:white;color:#111;padding:30px;border-radius:24px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)}.status{font-size:32px;font-weight:800;margin-bottom:20px}.valid{color:#0f9d58}.invalid{color:#d71920}.detail{text-align:left;margin-top:20px;line-height:1.8;font-size:16px}.card-id{font-weight:800;color:#0b4ea2;word-break:break-word}.note{margin-top:18px;background:#eef5ff;padding:14px;border-radius:12px;font-size:13px;line-height:1.6;color:#244}
+</style>
+</head>
+<body>
+<div class="box">
+  <div id="status" class="status">Checking...</div>
+  <div id="details" class="detail"></div>
+  <div class="note">For privacy, this page does not show full name or phone number publicly.</div>
+</div>
+<script>
+const params=new URLSearchParams(window.location.search);const cardId=params.get('id');
+function esc(value){return String(value||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+async function verifyCard(){
+  const status=document.getElementById('status');const details=document.getElementById('details');
+  if(!cardId){status.innerText='INVALID';status.className='status invalid';details.innerHTML='No Card ID found in the verification link.';return;}
+  try{
+    const res=await fetch('/api/verifyCard?id='+encodeURIComponent(cardId));
+    const data=await res.json();
+    if(!data.valid){status.innerText='INVALID CARD';status.className='status invalid';details.innerHTML=`This card ID was not found or is inactive.<br><br>Card ID: <span class="card-id">${esc(cardId)}</span>`;return;}
+    const issued=data.issuedOn?new Date(data.issuedOn).toLocaleString():'Not available';
+    status.innerText='VALID CARD';status.className='status valid';
+    details.innerHTML=`<strong>Card ID:</strong> <span class="card-id">${esc(data.cardId)}</span><br><strong>Status:</strong> ${esc(data.status)}<br><strong>Issued:</strong> ${esc(issued)}<br><strong>Registered Phone:</strong> ${esc(data.maskedPhone||'Masked for privacy')}`;
+  }catch(error){console.error(error);status.innerText='ERROR';status.className='status invalid';details.innerHTML='Could not verify card. Please try again later.';}
+}
+verifyCard();
+</script>
+</body>
+</html>
