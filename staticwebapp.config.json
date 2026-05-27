@@ -1,0 +1,33 @@
+{
+  "routes": [
+    {
+      "route": "/security.html",
+      "allowedRoles": ["admin"]
+    },
+    {
+      "route": "/bulk-generator.html",
+      "allowedRoles": ["admin"]
+    },
+    {
+      "route": "/api/admin/*",
+      "allowedRoles": ["admin"]
+    }
+  ],
+  "responseOverrides": {
+    "401": {
+      "redirect": "/.auth/login/aad",
+      "statusCode": 302
+    },
+    "403": {
+      "rewrite": "/403.html",
+      "statusCode": 403
+    }
+  },
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Cache-Control": "no-store"
+  }
+}
