@@ -2,6 +2,16 @@ const { app } = require('@azure/functions');
 const { encryptText, keyedHash, maskPhone } = require('../lib/crypto');
 const { getCardByPhoneHash, upsertCard } = require('../lib/storage');
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type'
+};
+
+function json(status, body) {
+  return { status, headers: corsHeaders, jsonBody: body };
+}
+
 function cleanPhone(phone) {
   return String(phone || '').replace(/\D/g, '');
 }
@@ -22,16 +32,20 @@ function makeCardId() {
 }
 
 app.http('createCard', {
-  methods: ['POST'],
+  methods: ['POST', 'OPTIONS'],
   authLevel: 'anonymous',
   route: 'createCard',
   handler: async (request, context) => {
+    if (request.method === 'OPTIONS') {
+      return { status: 204, headers: corsHeaders };
+    }
+
     try {
       const body = await request.json().catch(() => ({}));
 
       // Honeypot: real users will never fill this hidden field.
       if (body.companyWebsite) {
-        return { status: 400, jsonBody: { ok: false, message: 'Invalid request.' } };
+        return json(400, { ok: false, message: 'Invalid request.' });
       }
 
       const name = cleanName(body.name);
@@ -40,31 +54,28 @@ app.http('createCard', {
       const source = String(body.source || 'public-form').slice(0, 40);
 
       if (!name) {
-        return { status: 400, jsonBody: { ok: false, message: 'Name is required.' } };
+        return json(400, { ok: false, message: 'Name is required.' });
       }
 
       if (!/^[0-9]{10}$/.test(phone)) {
-        return { status: 400, jsonBody: { ok: false, message: 'Enter a valid 10-digit WhatsApp number.' } };
+        return json(400, { ok: false, message: 'Enter a valid 10-digit WhatsApp number.' });
       }
 
       if (!consent) {
-        return { status: 400, jsonBody: { ok: false, message: 'Consent is required to generate the card.' } };
+        return json(400, { ok: false, message: 'Consent is required to generate the card.' });
       }
 
       const phoneHash = keyedHash(phone);
       const existing = await getCardByPhoneHash(phoneHash);
 
       if (existing) {
-        return {
-          status: 200,
-          jsonBody: {
-            ok: true,
-            reused: true,
-            uniqueId: existing.uniqueId,
-            maskedPhone: existing.maskedPhone,
-            message: 'Existing card reused for this number.'
-          }
-        };
+        return json(200, {
+          ok: true,
+          reused: true,
+          uniqueId: existing.uniqueId,
+          maskedPhone: existing.maskedPhone,
+          message: 'Existing card reused for this number.'
+        });
       }
 
       const uniqueId = makeCardId();
@@ -95,25 +106,19 @@ app.http('createCard', {
         ...baseData
       });
 
-      return {
-        status: 201,
-        jsonBody: {
-          ok: true,
-          reused: false,
-          uniqueId,
-          maskedPhone: maskPhone(phone),
-          message: 'Card created successfully.'
-        }
-      };
+      return json(201, {
+        ok: true,
+        reused: false,
+        uniqueId,
+        maskedPhone: maskPhone(phone),
+        message: 'Card created successfully.'
+      });
     } catch (error) {
       context.error(error);
-      return {
-        status: 500,
-        jsonBody: {
-          ok: false,
-          message: 'Card generation failed. Please contact the admin.'
-        }
-      };
+      return json(500, {
+        ok: false,
+        message: 'Card generation failed. Please contact the admin.'
+      });
     }
   }
 });
