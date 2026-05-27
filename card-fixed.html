@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MMI Family Privilege Card</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Poppins,Arial,sans-serif;min-height:100vh;padding:22px;background:linear-gradient(135deg,#020b24,#062b70 55%,#020b24);color:white;display:flex;justify-content:center;align-items:center}
+    .box{width:100%;max-width:760px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:34px;padding:30px;box-shadow:0 20px 70px rgba(0,0,0,.45);backdrop-filter:blur(18px)}
+    .brand{text-align:center;font-size:25px;font-weight:900;margin-bottom:18px}.brand span{color:#72d4ff}
+    h1{text-align:center;font-size:42px;line-height:1.08;margin-bottom:10px;font-weight:900}h1 span{color:#72d4ff}
+    .sub{text-align:center;color:#e8f1ff;margin-bottom:24px;font-size:17px}
+    input[type=text],input[type=tel]{width:100%;padding:18px 20px;margin-bottom:14px;border:0;border-radius:20px;font-size:16px;font-weight:700;outline:0;background:#fff;color:#111}
+    .hp{display:none}.consent{display:flex;gap:14px;align-items:flex-start;margin:16px 0 20px;font-size:14px;line-height:1.5;color:#e8f1ff}.consent input{width:25px;height:25px;min-width:25px;accent-color:#0b8bdc}
+    button{width:100%;padding:18px;border:0;border-radius:20px;color:white;font-size:19px;font-weight:900;cursor:pointer}.primary{background:linear-gradient(135deg,#ff003c,#d71920)}.download{margin-top:20px;background:linear-gradient(135deg,#0b4ea2,#00a8ff)}button:disabled{opacity:.65;cursor:not-allowed}
+    .note{text-align:center;font-size:12px;line-height:1.5;color:#dbeafe;margin-top:14px}.out{display:none;margin-top:28px}.stack{width:100%;max-width:720px;margin:auto;border-radius:22px;overflow:hidden;box-shadow:0 18px 48px rgba(0,0,0,.46);background:#06265d}.face{position:relative;width:100%;aspect-ratio:16/9;background:#06316f;overflow:hidden}.face img{width:100%;height:100%;object-fit:cover;display:block}.cardid{position:absolute;right:5%;top:5.9%;max-width:48%;text-align:right;white-space:nowrap;overflow:hidden;color:white;font-size:clamp(11px,2.05vw,21px);font-weight:900;letter-spacing:.5px;text-shadow:0 2px 5px rgba(0,0,0,.78)}.qr{position:absolute;right:6.7%;top:13%;width:13.3%;aspect-ratio:1/1;background:white;padding:.9%}.msg{text-align:center;margin-top:20px;line-height:1.6}.msg h2{font-size:28px}.footer{text-align:center;margin-top:20px;font-size:12px;opacity:.75}
+    @media(max-width:520px){.box{padding:24px 18px}h1{font-size:33px}.cardid{font-size:11px;max-width:52%}.consent{font-size:13px}}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="brand">Narayana <span>Health</span></div>
+    <h1>Avail your <span>FREE</span> E-card</h1>
+    <p class="sub">Welcome to the MMI Narayana Health Family</p>
+    <input type="text" id="name" placeholder="Enter Full Name" autocomplete="name">
+    <input type="tel" id="phone" placeholder="Enter 10-digit WhatsApp Number" maxlength="10" autocomplete="tel">
+    <input class="hp" type="text" id="companyWebsite" tabindex="-1" autocomplete="off">
+    <label class="consent"><input type="checkbox" id="consent"><span>I consent to MMI Narayana Health using my name and phone number for generating and verifying my Family Privilege Card.</span></label>
+    <button class="primary" id="generateBtn" onclick="generateCard()">Generate E-Card</button>
+    <p class="note">Data is submitted to a secure server-side Azure API. The public page does not contain database keys.</p>
+    <div class="out" id="out">
+      <div class="stack">
+        <div class="face"><img src="assetscard-front.png"><div class="cardid" id="cardIdText">NHPC-AZ-000000</div><canvas class="qr" id="qrBox"></canvas></div>
+        <div class="face"><img src="assetscard-back.png"></div>
+      </div>
+      <div class="msg"><h2>🎉 Congratulations!</h2><p>Welcome to the MMI Narayana Health Family.</p><p>This card covers your entire family during hospital visits.</p></div>
+      <button class="download" id="downloadBtn" onclick="downloadCard()">Download your card</button>
+    </div>
+    <div class="footer">MMI Narayana Health</div>
+  </div>
+<script>
+const API_BASE='https://mmi-nhpc-ecard-api-c7erf9feh9gnbhdw.centralindia-01.azurewebsites.net';
+const FRONT='assetscard-front.png';
+const BACK='assetscard-back.png';
+let currentCardId='';
+function cleanPhone(v){return String(v||'').replace(/\D/g,'')}
+function verifyUrl(id){return location.origin+location.pathname.replace(/card-fixed\.html$/,'')+'verify.html?id='+encodeURIComponent(id)}
+function makeQR(canvas,text,size){canvas.width=size;canvas.height=size;new QRious({element:canvas,value:text,size:size,level:'M',background:'white',foreground:'black'});return canvas}
+function loadImage(src){return new Promise((ok,fail)=>{const img=new Image();img.onload=()=>ok(img);img.onerror=fail;img.src=src+'?v='+Date.now()})}
+function fitId(ctx,text,w,maxWidth){let size=Math.round(w*.022);ctx.textAlign='right';ctx.textBaseline='alphabetic';do{ctx.font='900 '+size+'px Poppins,Arial';if(ctx.measureText(text).width<=maxWidth||size<=15)break;size--}while(true)}
+async function drawOne(src,isFront,width){let img=await loadImage(src);let w=width||img.naturalWidth;let h=Math.round(img.naturalHeight*(w/img.naturalWidth));let c=document.createElement('canvas');let ctx=c.getContext('2d');c.width=w;c.height=h;ctx.drawImage(img,0,0,w,h);if(isFront){ctx.save();ctx.fillStyle='white';ctx.shadowColor='rgba(0,0,0,.75)';ctx.shadowBlur=5;ctx.shadowOffsetY=3;fitId(ctx,currentCardId,w,w*.46);ctx.fillText(currentCardId,w*.955,h*.078);ctx.restore();let q=w*.133;let qr=document.createElement('canvas');makeQR(qr,verifyUrl(currentCardId),900);ctx.fillStyle='white';ctx.fillRect(w*.827,h*.13,q,q);ctx.drawImage(qr,w*.827+q*.06,h*.13+q*.06,q*.88,q*.88)}return c}
+async function generateCard(){let name=document.getElementById('name').value.trim();let phone=cleanPhone(document.getElementById('phone').value);let consent=document.getElementById('consent').checked;let companyWebsite=document.getElementById('companyWebsite').value;let btn=document.getElementById('generateBtn');if(!name||!phone){alert('Please fill all fields');return}if(!/^[0-9]{10}$/.test(phone)){alert('Enter valid 10-digit WhatsApp number');return}if(!consent){alert('Please give consent to generate the card.');return}try{btn.disabled=true;btn.innerText='Generating...';let res=await fetch(API_BASE+'/api/createCard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,consent,companyWebsite,source:'public-form'})});let data=await res.json();if(!res.ok||!data.ok)throw new Error(data.message||'Card generation failed');currentCardId=data.uniqueId;document.getElementById('cardIdText').innerText=currentCardId;makeQR(document.getElementById('qrBox'),verifyUrl(currentCardId),700);document.getElementById('out').style.display='block';confetti({particleCount:220,spread:120,origin:{y:.58}});setTimeout(()=>document.getElementById('out').scrollIntoView({behavior:'smooth'}),250)}catch(e){alert(e.message||'Something went wrong. Please try again.')}finally{btn.disabled=false;btn.innerText='Generate E-Card'}}
+async function downloadCard(){if(!currentCardId){alert('Please generate your card first.');return}let b=document.getElementById('downloadBtn');try{b.disabled=true;b.innerText='Preparing download...';let front=await drawOne(FRONT,true);let back=await drawOne(BACK,false,front.width);let final=document.createElement('canvas');let ctx=final.getContext('2d');final.width=front.width;final.height=front.height+back.height;ctx.drawImage(front,0,0);ctx.drawImage(back,0,front.height);let a=document.createElement('a');a.download=currentCardId+'-MMI-Family-Privilege-Card.jpg';a.href=final.toDataURL('image/jpeg',.94);a.click()}catch(e){alert('Download failed. Please try again.')}finally{b.disabled=false;b.innerText='Download your card'}}
+</script>
+</body>
+</html>
