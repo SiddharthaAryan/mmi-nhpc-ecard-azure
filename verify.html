@@ -15,13 +15,14 @@
   <div class="note">For privacy, this page does not show full name or phone number publicly.</div>
 </div>
 <script>
+const API_BASE="https://mmi-nhpc-ecard-api-c7erf9feh9gnbhdw.centralindia-01.azurewebsites.net";
 const params=new URLSearchParams(window.location.search);const cardId=params.get('id');
 function esc(value){return String(value||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 async function verifyCard(){
   const status=document.getElementById('status');const details=document.getElementById('details');
   if(!cardId){status.innerText='INVALID';status.className='status invalid';details.innerHTML='No Card ID found in the verification link.';return;}
   try{
-    const res=await fetch('/api/verifyCard?id='+encodeURIComponent(cardId));
+    const res=await fetch(API_BASE+'/api/verifyCard?id='+encodeURIComponent(cardId));
     const data=await res.json();
     if(!data.valid){status.innerText='INVALID CARD';status.className='status invalid';details.innerHTML=`This card ID was not found or is inactive.<br><br>Card ID: <span class="card-id">${esc(cardId)}</span>`;return;}
     const issued=data.issuedOn?new Date(data.issuedOn).toLocaleString():'Not available';
