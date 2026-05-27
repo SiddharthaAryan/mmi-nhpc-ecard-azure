@@ -51,9 +51,10 @@ button{width:100%;padding:18px;border:none;border-radius:20px;color:white;font-s
   <div class="footer">MMI Narayana Health</div>
 </div>
 <script>
+const API_BASE="https://mmi-nhpc-ecard-api-c7erf9feh9gnbhdw.centralindia-01.azurewebsites.net";
 let currentCardId = "";
 function cleanPhone(phone){return String(phone||'').replace(/\D/g,'');}
-function getVerifyUrl(cardId){return window.location.origin + '/verify.html?id=' + encodeURIComponent(cardId);}
+function getVerifyUrl(cardId){return window.location.origin + window.location.pathname.replace(/index\.html$/,'') + 'verify.html?id=' + encodeURIComponent(cardId);}
 function generateQRToCanvas(canvas,text,size){canvas.width=size;canvas.height=size;new QRious({element:canvas,value:text,size:size,level:'M',background:'white',foreground:'black'});return canvas;}
 async function generateQR(cardId){generateQRToCanvas(document.getElementById('qrPreview'),getVerifyUrl(cardId),220);}
 window.generateCard = async function(){
@@ -67,7 +68,7 @@ window.generateCard = async function(){
   if(!consent){alert('Please give consent to generate the card.');return;}
   try{
     btn.disabled=true;btn.innerText='Generating...';
-    const response=await fetch('/api/createCard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,consent,companyWebsite,source:'public-form'})});
+    const response=await fetch(API_BASE+'/api/createCard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,consent,companyWebsite,source:'public-form'})});
     const data=await response.json();
     if(!response.ok || !data.ok){throw new Error(data.message||'Card generation failed');}
     currentCardId=data.uniqueId;
