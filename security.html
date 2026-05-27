@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NHPC Admin Dashboard</title>
+<style>
+*{box-sizing:border-box}body{font-family:Poppins,Arial,sans-serif;background:#061b3d;margin:0;padding:20px;color:white}.dashboard{max-width:1200px;margin:auto;background:white;color:#111;padding:25px;border-radius:22px}h1{margin-top:0}.top{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}.btn{padding:13px 18px;border:none;border-radius:12px;background:#0b4ea2;color:white;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block}.danger{background:#d71920}.stat{font-size:28px;font-weight:800;color:#d71920}.small-note{font-size:13px;color:#666;margin-top:5px;line-height:1.5}input{padding:14px;border-radius:12px;border:1px solid #ccc;width:100%;margin-top:15px;font-size:15px}table{width:100%;border-collapse:collapse;margin-top:20px;font-size:14px}th,td{border:1px solid #ddd;padding:10px;text-align:left}th{background:#0b4ea2;color:white}tr:nth-child(even){background:#f5f5f5}.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.controls .btn{flex:1;min-width:160px;text-align:center}.privacy{background:#eef5ff;border-left:5px solid #0b4ea2;padding:14px;border-radius:10px;margin:16px 0;font-size:13px;line-height:1.6}.table-wrap{overflow:auto}.pill{display:inline-block;background:#eef5ff;color:#0b4ea2;border-radius:999px;padding:4px 10px;font-weight:700;font-size:12px}
+</style>
+</head>
+<body>
+<div class="dashboard">
+  <div class="top">
+    <div><h1>NHPC E-Card Dashboard</h1><div class="small-note" id="userInfo">Azure authenticated admin area</div></div>
+    <div><a class="btn" href="/.auth/me">Auth Info</a> <a class="btn danger" href="/.auth/logout">Logout</a></div>
+  </div>
+  <div class="privacy"><b>Privacy control:</b> admin access is protected by Azure Static Web Apps authentication and a server-side admin email allowlist. Public QR verification does not reveal full name or phone number.</div>
+  <p>Total Loaded Records: <span class="stat" id="total">0</span></p>
+  <p class="small-note">Loads latest available records from Azure Table Storage. Search filters the loaded records only.</p>
+  <input id="search" placeholder="Search loaded records by Name / Phone / ID / Source / Date" onkeyup="renderTable()">
+  <div class="controls"><button class="btn" onclick="loadRecords()">Refresh Records</button><button class="btn" onclick="exportCSV()">Export Loaded CSV</button><a class="btn" href="bulk-generator.html">Bulk Generator</a></div>
+  <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Masked</th><th>Unique ID</th><th>Source</th><th>Status</th><th>Date</th></tr></thead><tbody id="tableBody"></tbody></table></div>
+</div>
+<script>
+let rows=[];
+function esc(value){return String(value||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+async function loadUser(){try{const res=await fetch('/.auth/me');const data=await res.json();const user=data.clientPrincipal;document.getElementById('userInfo').innerText=user?'Logged in as: '+user.userDetails:'Logged in with Azure auth';}catch(e){}}
+window.loadRecords=async function(){
+  const body=document.getElementById('tableBody');body.innerHTML='<tr><td colspan="7">Loading...</td></tr>';
+  try{const res=await fetch('/api/admin/cards?limit=500');const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.message||'Could not load records');rows=data.rows||[];document.getElementById('total').innerText=rows.length;renderTable();}
+  catch(error){console.error(error);body.innerHTML='<tr><td colspan="7">'+esc(error.message||'Could not load records')+'</td></tr>';}
+}
+window.renderTable=function(){const search=document.getElementById('search').value.toLowerCase();const filtered=rows.filter(r=>[r.name,r.phone,r.maskedPhone,r.uniqueId,r.source,r.status,r.createdAt].some(v=>String(v||'').toLowerCase().includes(search)));const body=document.getElementById('tableBody');body.innerHTML=filtered.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${esc(r.maskedPhone)}</td><td>${esc(r.uniqueId)}</td><td><span class="pill">${esc(r.source)}</span></td><td>${esc(r.status)}</td><td>${esc(r.createdAt?new Date(r.createdAt).toLocaleString():'')}</td></tr>`).join('')||'<tr><td colspan="7">No matching loaded records.</td></tr>';}
+window.exportCSV=function(){let csv='Name,Phone,Masked Phone,Unique ID,Source,Status,Date\n';rows.forEach(r=>{csv += `"${String(r.name||'').replace(/"/g,'""')}","${String(r.phone||'').replace(/"/g,'""')}","${r.maskedPhone||''}","${r.uniqueId||''}","${r.source||''}","${r.status||''}","${r.createdAt||''}"\n`;});const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='nhpc-ecard-azure-loaded-data.csv';a.click();URL.revokeObjectURL(url);}
+loadUser();loadRecords();
+</script>
+</body>
+</html>
