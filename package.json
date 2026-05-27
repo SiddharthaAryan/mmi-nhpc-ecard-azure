@@ -1,0 +1,13 @@
+{
+  "name": "mmi-nhpc-ecard-azure",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Azure Static Web Apps rebuild for MMI NHPC e-card system",
+  "scripts": {
+    "start": "swa start . --api-location api",
+    "api:start": "cd api && npm start"
+  },
+  "devDependencies": {
+    "@azure/static-web-apps-cli": "latest"
+  }
+}
