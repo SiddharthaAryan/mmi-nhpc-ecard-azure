@@ -21,40 +21,11 @@
 
   <div id="adminPanel" class="hidden">
     <div class="top">
-      <div class="brand">
-        <h1>NHPC Card Admin Portal</h1>
-        <p>MMI Narayana Health Family Privilege Card database</p>
-      </div>
-      <div class="actions">
-        <button onclick="loadData()">Refresh</button>
-        <button onclick="downloadCSV()">Download CSV</button>
-        <button class="grey" onclick="copySummary()">Copy Summary</button>
-        <button class="red" onclick="logout()">Logout</button>
-      </div>
+      <div class="brand"><h1>NHPC Card Admin Portal</h1><p>MMI Narayana Health Family Privilege Card database</p></div>
+      <div class="actions"><button onclick="loadData()">Refresh</button><button onclick="downloadCSV()">Download CSV</button><button class="grey" onclick="copySummary()">Copy Summary</button><button class="red" onclick="logout()">Logout</button></div>
     </div>
-
-    <div class="stats">
-      <div class="stat"><b id="totalCards">0</b><span>Total Cards</span></div>
-      <div class="stat"><b id="activeCards">0</b><span>Active Cards</span></div>
-      <div class="stat"><b id="todayCards">0</b><span>Generated Today</span></div>
-      <div class="stat"><b id="lastSync">--</b><span>Last Sync</span></div>
-    </div>
-
-    <div class="card">
-      <div class="toolbar">
-        <input type="text" id="search" placeholder="Search name, phone, card ID..." oninput="renderTable()">
-        <button onclick="loadData()">Reload Database</button>
-      </div>
-      <div class="tableBox">
-        <table>
-          <thead>
-            <tr><th>#</th><th>Card ID</th><th>Name</th><th>Phone</th><th>Masked</th><th>Status</th><th>Source</th><th>Consent</th><th>Created At</th></tr>
-          </thead>
-          <tbody id="tbody"><tr><td colspan="9">No data loaded yet.</td></tr></tbody>
-        </table>
-      </div>
-      <p class="note">Only authorized users with the admin key can load data. Full name and phone are decrypted only through the backend after admin authorization.</p>
-    </div>
+    <div class="stats"><div class="stat"><b id="totalCards">0</b><span>Total Cards</span></div><div class="stat"><b id="activeCards">0</b><span>Active Cards</span></div><div class="stat"><b id="todayCards">0</b><span>Generated Today</span></div><div class="stat"><b id="lastSync">--</b><span>Last Sync</span></div></div>
+    <div class="card"><div class="toolbar"><input type="text" id="search" placeholder="Search name, phone, card ID..." oninput="renderTable()"><button onclick="loadData()">Reload Database</button></div><div class="tableBox"><table><thead><tr><th>#</th><th>Card ID</th><th>Name</th><th>Phone</th><th>Masked</th><th>Status</th><th>Source</th><th>Consent</th><th>Created At</th></tr></thead><tbody id="tbody"><tr><td colspan="9">No data loaded yet.</td></tr></tbody></table></div><p class="note">Only authorized users with the admin key can load data. Full name and phone are decrypted only through the backend after admin authorization.</p></div>
   </div>
 </div>
 <script>
@@ -64,7 +35,7 @@ function fmtDate(v){if(!v)return '';try{return new Date(v).toLocaleString()}catc
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function login(){const key=document.getElementById('adminKey').value.trim();if(!key){alert('Enter admin access key');return}adminKey=key;sessionStorage.setItem('nhpc_admin_key',key);document.getElementById('loginCard').classList.add('hidden');document.getElementById('adminPanel').classList.remove('hidden');loadData()}
 function logout(){sessionStorage.removeItem('nhpc_admin_key');adminKey='';rows=[];document.getElementById('adminPanel').classList.add('hidden');document.getElementById('loginCard').classList.remove('hidden');document.getElementById('adminKey').value=''}
-async function loadData(){try{document.getElementById('tbody').innerHTML='<tr><td colspan="9">Loading...</td></tr>';const url=API_BASE+'/api/adminCards?limit=5000&key='+encodeURIComponent(adminKey)+'&t='+Date.now();const res=await fetch(url,{method:'GET',cache:'no-store'});const raw=await res.text();if(!raw)throw new Error('Admin API returned an empty response. Restart the Azure Function App and try again.');let data;try{data=JSON.parse(raw)}catch(_){throw new Error('Admin API returned non-JSON response. Open the API test URL once and then retry.')}if(!res.ok||!data.ok)throw new Error(data.message||'Admin load failed');rows=data.rows||[];document.getElementById('lastSync').innerText=new Date().toLocaleTimeString();renderStats();renderTable()}catch(e){document.getElementById('tbody').innerHTML='<tr><td colspan="9">'+esc(e.message||'Load failed')+'</td></tr>';alert(e.message||'Load failed')}}
+async function loadData(){try{document.getElementById('tbody').innerHTML='<tr><td colspan="9">Loading...</td></tr>';const url=API_BASE+'/api/createCard?admin=1&limit=5000&key='+encodeURIComponent(adminKey)+'&t='+Date.now();const res=await fetch(url,{method:'GET',cache:'no-store'});const raw=await res.text();if(!raw)throw new Error('Admin API returned an empty response. Wait 2 minutes after deployment, restart Function App, then try again.');let data;try{data=JSON.parse(raw)}catch(_){throw new Error('Admin API returned non-JSON response. Directly test /api/createCard?admin=1 once.')}if(!res.ok||!data.ok)throw new Error(data.message||'Admin load failed');rows=data.rows||[];document.getElementById('lastSync').innerText=new Date().toLocaleTimeString();renderStats();renderTable()}catch(e){document.getElementById('tbody').innerHTML='<tr><td colspan="9">'+esc(e.message||'Load failed')+'</td></tr>';alert(e.message||'Load failed')}}
 function renderStats(){const today=new Date().toDateString();document.getElementById('totalCards').innerText=rows.length;document.getElementById('activeCards').innerText=rows.filter(r=>r.status==='active').length;document.getElementById('todayCards').innerText=rows.filter(r=>r.createdAt&&new Date(r.createdAt).toDateString()===today).length}
 function renderTable(){const q=document.getElementById('search').value.trim().toLowerCase();let filtered=rows.filter(r=>!q||[r.uniqueId,r.name,r.phone,r.maskedPhone,r.status,r.source].join(' ').toLowerCase().includes(q));document.getElementById('tbody').innerHTML=filtered.map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.uniqueId)}</b></td><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${esc(r.maskedPhone)}</td><td><span class="status">${esc(r.status)}</span></td><td>${esc(r.source)}</td><td>${r.consentGiven?'Yes':'No'}</td><td>${esc(fmtDate(r.createdAt))}</td></tr>`).join('')||'<tr><td colspan="9">No matching records.</td></tr>'}
 function csvCell(v){return '"'+String(v??'').replace(/"/g,'""')+'"'}
