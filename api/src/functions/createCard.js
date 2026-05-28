@@ -1,11 +1,12 @@
 const { app } = require('@azure/functions');
-const { encryptText, keyedHash, maskPhone } = require('../lib/crypto');
-const { getCardByPhoneHash, upsertCard } = require('../lib/storage');
+const { encryptText, decryptText, keyedHash, maskPhone } = require('../lib/crypto');
+const { getCardByPhoneHash, upsertCard, listCards } = require('../lib/storage');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type'
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Cache-Control': 'no-store'
 };
 
 function json(status, body) {
@@ -31,8 +32,47 @@ function makeCardId() {
   return `${prefix}-${now}-${random}`;
 }
 
+function safeDecrypt(value) {
+  try {
+    return decryptText(value);
+  } catch (_) {
+    return '';
+  }
+}
+
+async function handleAdminRequest(request) {
+  const expected = process.env.ADMIN_ACCESS_KEY;
+  const provided = String(request.query.get('key') || '').trim();
+
+  if (!expected || provided !== expected) {
+    return json(401, { ok: false, message: 'Unauthorized admin access.' });
+  }
+
+  const limitRaw = Number(request.query.get('limit') || 5000);
+  const limit = Math.min(Math.max(limitRaw || 5000, 1), 5000);
+  const cards = await listCards(limit);
+
+  const rows = cards.map((card) => ({
+    uniqueId: card.uniqueId || card.rowKey || '',
+    name: safeDecrypt(card.encryptedName),
+    phone: safeDecrypt(card.encryptedPhone),
+    maskedPhone: card.maskedPhone || '',
+    status: card.status || '',
+    source: card.source || '',
+    consentGiven: card.consentGiven === true,
+    createdAt: card.createdAt || '',
+    updatedAt: card.updatedAt || ''
+  }));
+
+  return json(200, {
+    ok: true,
+    count: rows.length,
+    rows
+  });
+}
+
 app.http('createCard', {
-  methods: ['POST', 'OPTIONS'],
+  methods: ['GET', 'POST', 'OPTIONS'],
   authLevel: 'anonymous',
   route: 'createCard',
   handler: async (request, context) => {
@@ -41,6 +81,13 @@ app.http('createCard', {
     }
 
     try {
+      if (request.method === 'GET') {
+        if (request.query.get('admin') === '1') {
+          return await handleAdminRequest(request);
+        }
+        return json(200, { ok: true, message: 'createCard API is live.' });
+      }
+
       const body = await request.json().catch(() => ({}));
 
       // Honeypot: real users will never fill this hidden field.
@@ -117,7 +164,7 @@ app.http('createCard', {
       context.error(error);
       return json(500, {
         ok: false,
-        message: 'Card generation failed. Please contact the admin.'
+        message: request.method === 'GET' ? 'Admin database load failed.' : 'Card generation failed. Please contact the admin.'
       });
     }
   }
