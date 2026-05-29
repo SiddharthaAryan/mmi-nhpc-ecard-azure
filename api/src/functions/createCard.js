@@ -21,11 +21,12 @@ function cleanName(name) {
   return String(name || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
-function makeCardId() {
-  const prefix = process.env.CARD_PREFIX || 'NHPC-AZ';
-  const now = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${prefix}-${now}-${random}`;
+function makeCardIdFromPhoneHash(phoneHash) {
+  // Deterministic ID: same phone number will always map to the same card ID.
+  // This prevents duplicate IDs for the same number even under repeated submissions.
+  const prefix = process.env.CARD_PREFIX || 'NHPC-RPR';
+  const compact = String(phoneHash || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8);
+  return `${prefix}-${compact}`;
 }
 
 async function handleAdminSummary(body) {
@@ -77,10 +78,16 @@ app.http('createCard', {
       const phoneHash = keyedHash(phone);
       const existing = await getCardByPhoneHash(phoneHash);
       if (existing) {
-        return json(200, { ok: true, reused: true, uniqueId: existing.uniqueId, maskedPhone: existing.maskedPhone, message: 'Existing card reused for this number.' });
+        return json(200, {
+          ok: true,
+          reused: true,
+          uniqueId: existing.uniqueId,
+          maskedPhone: existing.maskedPhone,
+          message: 'Existing card reused for this number.'
+        });
       }
 
-      const uniqueId = makeCardId();
+      const uniqueId = makeCardIdFromPhoneHash(phoneHash);
       const createdAt = new Date().toISOString();
       const baseData = {
         uniqueId,
@@ -98,7 +105,13 @@ app.http('createCard', {
       await upsertCard({ partitionKey: 'PHONE', rowKey: phoneHash, ...baseData });
       await upsertCard({ partitionKey: 'CARD', rowKey: uniqueId, ...baseData });
 
-      return json(201, { ok: true, reused: false, uniqueId, maskedPhone: maskPhone(phone), message: 'Card created successfully.' });
+      return json(201, {
+        ok: true,
+        reused: false,
+        uniqueId,
+        maskedPhone: maskPhone(phone),
+        message: 'Card created successfully.'
+      });
     } catch (error) {
       context.error(error);
       return json(500, { ok: false, message: 'Request failed. Please contact the admin.' });
